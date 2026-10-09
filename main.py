@@ -26,7 +26,10 @@ async def cors(request: Request, call_next):
     return resp
 
 print("Loading model...")
+import torch
+torch.set_num_threads(1)
 model = YOLO("best_v2.pt")
+model.overrides["device"] = "cpu"
 print("Model loaded!")
 
 def keep_alive():
@@ -51,6 +54,9 @@ async def detect(file: UploadFile = File(...), body_part: str = Form(default="au
     try:
         contents = await file.read()
         image = Image.open(io.BytesIO(contents)).convert("RGB")
+        # Resize to save memory on free tier
+        if image.width > 640 or image.height > 640:
+            image.thumbnail((640, 640), Image.LANCZOS)
         results = model.predict(source=image, conf=0.45, verbose=False)
         detections = []
         for r in results:
